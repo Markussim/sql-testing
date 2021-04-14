@@ -1,6 +1,46 @@
-const express = require('express')
-const app = express()
-const port = 3000
+const express = require("express");
+const { Pool, Client } = require("pg");
+const app = express();
+const port = 3000;
 
-app.get('/', (req, res) => res.send('Hello World!'))
-app.listen(port, () => console.log(`Example app listening on port ${port}!`))
+app.use(express.urlencoded({ extended: true }));
+
+const pool = new Pool({
+  user: "postgres",
+  host: "localhost",
+  database: "nodetesting",
+  password: "1",
+});
+
+app.get("/", async (req, res) => {
+  res.sendFile(__dirname + "/client/index.html");
+});
+
+app.get("/get", async (req, res) => {
+  let text = await (await pool.query("SELECT * FROM Users")).rows;
+  res.send(text);
+});
+
+app.post("/addUser", async (req, res) => {
+  if (
+    (await (
+      await pool.query(
+        "SELECT table_name FROM information_schema.tables WHERE table_name = $1;",
+        [req.body.UserName]
+      )
+    ).rows.length) == 0
+  ) {
+    let insert = [req.body.UserName, req.body.BestFriend];
+    await pool.query(
+      "INSERT INTO Users(UserName, BestFriend) VALUES ($1, $2);",
+      insert
+    );
+    await pool.query(
+      "CREATE TABLE " + req.body.UserName + " (Post varchar(255));"
+    );
+  }
+
+  res.redirect("/get");
+});
+
+app.listen(port, () => console.log(`Example app listening on port ${port}!`));
